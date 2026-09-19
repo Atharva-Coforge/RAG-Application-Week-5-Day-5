@@ -20,8 +20,8 @@ class DomainModel(BaseModel):
     )
 
 
-class PolicyChunk(DomainModel):
-    """A complete embedded policy section ready for vector storage."""
+class PolicySection(DomainModel):
+    """A parsed policy section before embedding."""
 
     chunk_id: str = Field(
         min_length=1,
@@ -38,6 +38,11 @@ class PolicyChunk(DomainModel):
     )
     section_title: str = Field(min_length=1)
     text: str = Field(min_length=1)
+
+
+class PolicyChunk(PolicySection):
+    """A complete embedded policy section ready for vector storage."""
+
     embedding: tuple[EmbeddingValue, ...] = Field(min_length=1)
 
 
@@ -128,14 +133,22 @@ class GoldCase(DomainModel):
     question: str = Field(min_length=1)
     supported: bool
     required_answer: str = Field(min_length=1)
+    expected_section: str | None = Field(
+        default=None,
+        pattern=r"^[1-9]\d*$",
+    )
 
     @model_validator(mode="after")
     def validate_expected_answer(self) -> Self:
-        """Keep support labels consistent with the canonical refusal."""
+        """Keep support labels, answers, and expected sections consistent."""
         if self.supported and self.required_answer == REFUSAL_ANSWER:
             raise ValueError("a supported case cannot require the refusal answer")
+        if self.supported and self.expected_section is None:
+            raise ValueError("a supported case must define an expected section")
         if not self.supported and self.required_answer != REFUSAL_ANSWER:
             raise ValueError(
                 "an unsupported case must require the canonical refusal answer"
             )
+        if not self.supported and self.expected_section is not None:
+            raise ValueError("an unsupported case must not define an expected section")
         return self
