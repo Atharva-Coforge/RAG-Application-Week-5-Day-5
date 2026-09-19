@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "expense-rag"
+version = "0.1.0"
+description = "A grounded expense-policy RAG CLI."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+chroma = ["chromadb>=1.0,<2.0"]
+faiss = ["faiss-cpu>=1.12,<2.0"]
+pgvector = [
+    "pgvector>=0.4,<1.0",
+    "psycopg[binary]>=3.2,<4.0",
+]
+
+[project.scripts]
+expense-rag = "expense_rag.cli:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18,<2.0",
+    "pytest>=8.4,<9.0",
+    "ruff>=0.13,<1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/expense_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true

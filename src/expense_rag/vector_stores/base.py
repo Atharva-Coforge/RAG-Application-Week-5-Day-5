@@ -1,0 +1,1 @@
+"""Shared vector-store contract."""

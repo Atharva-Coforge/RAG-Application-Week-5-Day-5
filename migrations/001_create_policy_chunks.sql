@@ -1,0 +1,1 @@
+-- The pgvector schema will be added after the embedding dimensions are known.
