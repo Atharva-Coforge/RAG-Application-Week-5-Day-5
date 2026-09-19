@@ -1,6 +1,7 @@
 """Tests for the provider-neutral embedding boundary."""
 
 from collections.abc import Sequence
+from typing import cast
 
 import pytest
 
@@ -10,6 +11,7 @@ from expense_rag.embeddings.provider import (
     embed_query,
     embed_sections,
     format_section_for_embedding,
+    validate_embedding_vector,
 )
 from expense_rag.models import PolicySection
 
@@ -182,3 +184,20 @@ def test_embedding_workflow_rejects_empty_inputs(
         embed_sections((), provider)
     with pytest.raises(EmbeddingContractError, match="question"):
         embed_query(" ", provider)
+
+
+@pytest.mark.parametrize("invalid_value", ["not-a-number", object()])
+def test_embedding_validation_wraps_numeric_conversion_failures(
+    invalid_value: object,
+) -> None:
+    malformed_vector = cast(Sequence[float], (invalid_value, 0.0))
+
+    with pytest.raises(
+        EmbeddingContractError,
+        match="contains a non-numeric value",
+    ):
+        validate_embedding_vector(
+            malformed_vector,
+            expected_dimension=2,
+            context="document vector 0",
+        )

@@ -84,7 +84,13 @@ def validate_embedding_vector(
             f"{context} has dimension {len(vector)}; expected {expected_dimension}"
         )
 
-    frozen = tuple(float(value) for value in vector)
+    try:
+        frozen = tuple(float(value) for value in vector)
+    except (TypeError, ValueError) as error:
+        raise EmbeddingContractError(
+            f"{context} contains a non-numeric value"
+        ) from error
+
     if not all(isfinite(value) for value in frozen):
         raise EmbeddingContractError(f"{context} contains a non-finite value")
 
