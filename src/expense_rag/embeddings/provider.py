@@ -1,0 +1,1 @@
+"""Initial embedding provider implementation."""
