@@ -463,6 +463,9 @@ wheels = [
 name = "expense-rag"
 version = "0.1.0"
 source = { editable = "." }
+dependencies = [
+    { name = "pydantic" },
+]
 
 [package.optional-dependencies]
 chroma = [
@@ -489,6 +492,7 @@ requires-dist = [
     { name = "faiss-cpu", marker = "extra == 'faiss'", specifier = ">=1.12,<2.0" },
     { name = "pgvector", marker = "extra == 'pgvector'", specifier = ">=0.4,<1.0" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'pgvector'", specifier = ">=3.2,<4.0" },
+    { name = "pydantic", specifier = ">=2.11,<3.0" },
 ]
 provides-extras = ["chroma", "faiss", "pgvector"]
 
