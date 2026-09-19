@@ -51,6 +51,19 @@ def test_policy_chunk_supports_json_and_schema(meals_chunk: PolicyChunk) -> None
     assert "embedding" in PolicyChunk.model_json_schema()["required"]
 
 
+def test_domain_models_are_frozen_and_reject_extra_fields(
+    meals_chunk: PolicyChunk,
+) -> None:
+    with pytest.raises(ValidationError, match="frozen"):
+        meals_chunk.section_title = "Hotels"
+
+    invalid_data = meals_chunk.model_dump()
+    invalid_data["provider_name"] = "must-not-leak-into-domain-models"
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        PolicyChunk.model_validate(invalid_data)
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
@@ -85,6 +98,18 @@ def test_search_result_serializes_only_public_fields(
     }
 
 
+@pytest.mark.parametrize(
+    "distance",
+    [-0.01, 2.01, float("nan"), float("inf")],
+)
+def test_search_result_rejects_invalid_cosine_distance(
+    meals_chunk: PolicyChunk,
+    distance: float,
+) -> None:
+    with pytest.raises(ValidationError):
+        SearchResult(chunk=meals_chunk, distance=distance)
+
+
 def test_supported_response_requires_grounded_citation(
     meals_chunk: PolicyChunk,
 ) -> None:
@@ -100,6 +125,34 @@ def test_supported_response_requires_grounded_citation(
         "version": "2.0",
         "section": "1. Meals",
     }
+
+
+def test_rag_response_serializes_to_public_contract(
+    meals_chunk: PolicyChunk,
+) -> None:
+    response = RagResponse(
+        answer="Employees may claim up to $65 per day for meals.",
+        citation=Citation.from_chunk(meals_chunk),
+        retrieved_chunks=(SearchResult(chunk=meals_chunk, distance=0.08),),
+    )
+
+    assert json.loads(response.model_dump_json()) == {
+        "answer": "Employees may claim up to $65 per day for meals.",
+        "citation": {
+            "document": "Employee Expense Policy",
+            "version": "2.0",
+            "section": "1. Meals",
+        },
+        "retrieved_chunks": [
+            {
+                "distance": 0.08,
+                "section": "1. Meals",
+            }
+        ],
+    }
+
+    schema = RagResponse.model_json_schema(mode="serialization")
+    assert schema["properties"]["retrieved_chunks"]["maxItems"] == 3
 
 
 def test_supported_response_rejects_unretrieved_citation(
@@ -138,6 +191,31 @@ def test_response_rejects_unsorted_or_duplicate_results(
                 SearchResult(chunk=meals_chunk, distance=0.1),
                 SearchResult(chunk=meals_chunk, distance=0.2),
             ),
+        )
+
+
+def test_response_rejects_more_than_three_results(
+    meals_chunk: PolicyChunk,
+) -> None:
+    results = tuple(
+        SearchResult(
+            chunk=meals_chunk.model_copy(
+                update={
+                    "chunk_id": f"expense-policy:v2.0:section-{section}",
+                    "section": str(section),
+                    "section_title": f"Section {section}",
+                }
+            ),
+            distance=section / 10,
+        )
+        for section in range(1, 5)
+    )
+
+    with pytest.raises(ValidationError, match="at most 3"):
+        RagResponse(
+            answer=REFUSAL_ANSWER,
+            citation=None,
+            retrieved_chunks=results,
         )
 
 
