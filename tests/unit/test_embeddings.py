@@ -13,6 +13,10 @@ from expense_rag.embeddings.provider import (
     format_section_for_embedding,
     validate_embedding_vector,
 )
+from expense_rag.embeddings.sentence_transformer import (
+    format_document_input,
+    format_query_input,
+)
 from expense_rag.models import PolicySection
 
 
@@ -201,3 +205,32 @@ def test_embedding_validation_wraps_numeric_conversion_failures(
             expected_dimension=2,
             context="document vector 0",
         )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected_query", "expected_document"),
+    [
+        (
+            "sentence-transformers/all-MiniLM-L6-v2",
+            "question",
+            "document",
+        ),
+        (
+            "BAAI/bge-small-en-v1.5",
+            "Represent this sentence for searching relevant passages: question",
+            "document",
+        ),
+        (
+            "intfloat/e5-small-v2",
+            "query: question",
+            "passage: document",
+        ),
+    ],
+)
+def test_candidate_models_use_selected_documented_formats(
+    model_name: str,
+    expected_query: str,
+    expected_document: str,
+) -> None:
+    assert format_query_input(model_name, "question") == expected_query
+    assert format_document_input(model_name, "document") == expected_document
