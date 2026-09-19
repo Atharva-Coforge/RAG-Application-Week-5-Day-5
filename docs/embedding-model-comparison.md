@@ -41,8 +41,9 @@
 
 - Use the same six policy chunks and the same evaluation questions for every
   model.
-- Embed the same text representation for every model: section title followed
-  by the original section text.
+- Embed the same text representation for every model: section number, newline,
+  section title, newline, then the original section body text.
+- Require every provider adapter to return unit-normalized vectors.
 - Normalize vectors and use cosine distance for every comparison.
 - Use each model's documented input format. In particular,
   `intfloat/e5-small-v2` uses `query:` for questions and `passage:` for policy
