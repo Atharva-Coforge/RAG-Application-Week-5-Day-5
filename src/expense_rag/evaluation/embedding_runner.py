@@ -24,6 +24,7 @@ from expense_rag.embeddings.provider import (
 )
 from expense_rag.embeddings.sentence_transformer import (
     MODEL_INPUT_FORMATS,
+    SELECTED_EMBEDDING_MODEL,
     SentenceTransformerEmbeddingProvider,
 )
 from expense_rag.evaluation.gold_loader import load_gold_cases
@@ -88,6 +89,7 @@ class EmbeddingComparisonReport(BaseModel):
     environment: dict[str, str]
     accuracy_first_order: tuple[str, ...]
     results: tuple[EmbeddingBenchmarkResult, ...]
+    selected_model: str
     selection_status: str
 
 
@@ -242,7 +244,8 @@ def run_comparison(
             for result in sorted(results, key=_accuracy_first_key, reverse=True)
         ),
         results=tuple(results),
-        selection_status="Awaiting user selection",
+        selected_model=SELECTED_EMBEDDING_MODEL,
+        selection_status="Selected by user",
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
@@ -353,6 +356,7 @@ def main() -> None:
 def _summary(report: EmbeddingComparisonReport) -> dict[str, object]:
     return {
         "selection_status": report.selection_status,
+        "selected_model": report.selected_model,
         "accuracy_first_order": report.accuracy_first_order,
         "models": [
             {

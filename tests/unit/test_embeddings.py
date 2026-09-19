@@ -14,6 +14,8 @@ from expense_rag.embeddings.provider import (
     validate_embedding_vector,
 )
 from expense_rag.embeddings.sentence_transformer import (
+    MODEL_INPUT_FORMATS,
+    SELECTED_EMBEDDING_MODEL,
     format_document_input,
     format_query_input,
 )
@@ -234,3 +236,11 @@ def test_candidate_models_use_selected_documented_formats(
 ) -> None:
     assert format_query_input(model_name, "question") == expected_query
     assert format_document_input(model_name, "document") == expected_document
+
+
+def test_selected_embedding_model_is_a_supported_candidate() -> None:
+    assert (
+        SELECTED_EMBEDDING_MODEL
+        == "sentence-transformers/all-MiniLM-L6-v2"
+    )
+    assert SELECTED_EMBEDDING_MODEL in MODEL_INPUT_FORMATS
