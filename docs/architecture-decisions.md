@@ -36,17 +36,17 @@ MiniLM produced:
 - 100% Hit@3 across all five supported questions.
 - Mean reciprocal rank of 1.00.
 - The largest mean distance margin: 0.2542.
-- The lowest measured query p95 latency: 25.83 ms.
+- The lowest measured query p95 latency: 23.82 ms.
 - The smallest downloaded model size: 87.34 MB.
-- The lowest measured peak process RAM: 915.02 MB.
+- The lowest measured peak process RAM: 903.70 MB.
 
 BGE also achieved 100% Hit@1 and Hit@3, but its mean distance margin was
-smaller at 0.1212, query p95 was slower at 51.24 ms, and its downloaded size
+smaller at 0.1212, query p95 was slower at 44.25 ms, and its downloaded size
 was larger at 128.27 MB.
 
 E5 achieved 100% Hit@3 but only 80% Hit@1 and an MRR of 0.90. It ranked the
 expected Receipts section second for the `$20 taxi` question, had the smallest
-mean distance margin at 0.0399, and had the slowest query p95 at 56.58 ms.
+mean distance margin at 0.0399, and had a query p95 of 39.70 ms.
 
 ### Consequences
 
