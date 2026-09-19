@@ -47,3 +47,12 @@ target-version = "py312"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "sentence_transformers",
+    "sentence_transformers.*",
+    "huggingface_hub",
+    "huggingface_hub.*",
+]
+ignore_missing_imports = true
