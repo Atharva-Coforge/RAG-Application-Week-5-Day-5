@@ -12,7 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from expense_rag.embeddings.base import EmbeddingProvider
 from expense_rag.embeddings.provider import embed_query, embed_sections
-from expense_rag.env import get_embedding_model, get_ollama_host, project_root
+from expense_rag.env import (
+    get_embedding_model,
+    get_generation_model,
+    get_ollama_host,
+    project_root,
+)
 from expense_rag.evaluation.generation_metrics import (
     GenerationCaseEvaluation,
     GenerationQualityMetrics,
@@ -102,6 +107,7 @@ class GenerationComparisonReport(BaseModel):
     environment: dict[str, str]
     frozen_cases: tuple[FrozenGenerationCase, ...]
     results: tuple[GenerationBenchmarkResult, ...]
+    selected_model: str
     selection_status: str
 
 
@@ -188,7 +194,8 @@ class GenerationComparisonRunner:
             },
             frozen_cases=frozen_cases,
             results=results,
-            selection_status="Pending user decision",
+            selected_model=get_generation_model(),
+            selection_status="Selected by user",
         )
 
     def _benchmark_model(

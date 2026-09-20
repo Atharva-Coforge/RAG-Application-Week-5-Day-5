@@ -7,6 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from expense_rag.generation.providers.ollama_provider import CANDIDATE_OLLAMA_MODELS
 from expense_rag.vector_stores.factory import SUPPORTED_VECTOR_STORES
 
 
@@ -24,6 +25,14 @@ class MissingVectorStoreError(ValueError):
 
 class MissingOllamaHostError(ValueError):
     """Raised when Ollama generation needs OLLAMA_HOST and none is configured."""
+
+
+class MissingGenerationModelError(ValueError):
+    """Raised when GENERATION_MODEL is missing from the environment or `.env`."""
+
+
+class UnsupportedGenerationModelError(ValueError):
+    """Raised when GENERATION_MODEL is not one of the compared Ollama models."""
 
 
 class UnsupportedVectorStoreError(ValueError):
@@ -77,6 +86,21 @@ def get_vector_store(*, root: Path | None = None) -> str:
 def get_ollama_host(*, root: Path | None = None) -> str:
     """Return OLLAMA_HOST from the process environment or project `.env`."""
     return _required_env("OLLAMA_HOST", MissingOllamaHostError, root=root)
+
+
+def get_generation_model(*, root: Path | None = None) -> str:
+    """Return a compared Ollama model from the environment or project `.env`."""
+    value = _required_env(
+        "GENERATION_MODEL",
+        MissingGenerationModelError,
+        root=root,
+    )
+    if value not in CANDIDATE_OLLAMA_MODELS:
+        supported = ", ".join(CANDIDATE_OLLAMA_MODELS)
+        raise UnsupportedGenerationModelError(
+            f"unsupported GENERATION_MODEL {value!r}; choose one of {supported}"
+        )
+    return value
 
 
 def _required_env(

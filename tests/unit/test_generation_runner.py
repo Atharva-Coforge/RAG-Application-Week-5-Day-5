@@ -42,7 +42,7 @@ def test_freeze_generation_cases_keeps_top_three_chunks() -> None:
     assert frozen[0].required_answer == cases[0].required_answer
 
 
-def test_comparison_runner_does_not_select_a_winner() -> None:
+def test_comparison_runner_records_selected_qwen() -> None:
     def factory(_model_name: str) -> GenerationProvider:
         return FakeGenerationProvider(
             GenerationDecision(
@@ -70,7 +70,8 @@ def test_comparison_runner_does_not_select_a_winner() -> None:
         generation_factory=factory,
     )
 
-    assert report.selection_status == "Pending user decision"
+    assert report.selection_status == "Selected by user"
+    assert report.selected_model == "qwen3:8b"
     assert [result.model_name for result in report.results] == [
         "mistral:7b",
         "qwen3:8b",

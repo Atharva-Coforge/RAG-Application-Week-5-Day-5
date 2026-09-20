@@ -124,3 +124,57 @@ and must not be committed.
 
 Detailed measurements are recorded in
 [`vector-store-comparison.md`](vector-store-comparison.md).
+
+## ADR-003: Use local Ollama qwen3:8b for generation
+
+- **Status:** Accepted
+- **Date:** 2026-09-20
+
+### Context
+
+The application needs one generation model for grounded answers and refusals.
+We compared two local Ollama models with the same frozen MiniLM top-three
+contexts, the same grounded prompt, `GenerationDecision` JSON schema,
+`temperature=0`, and `think=False`:
+
+1. `mistral:7b`
+2. `qwen3:8b`
+
+### Decision
+
+Use local Ollama `qwen3:8b` as the application generation model. Keep
+`mistral:7b` as an implemented comparison candidate.
+
+### Evidence
+
+Latest measured run (synonym-aware prompt, thinking off):
+
+- Both models: 100% valid structured output.
+- Both models: gym-membership refusal correct (canonical refusal,
+  `citation=null`). Gym refusal was a tie.
+- `qwen3:8b` citation correctness: 100% (5 / 5 supported questions).
+- `mistral:7b` citation correctness: 80% (4 / 5). The $20 taxi answer said no
+  receipt was required but cited Ground Transportation instead of Receipts.
+- `qwen3:8b` latency p50 / p95: 2.311 s / 3.041 s.
+- `mistral:7b` latency p50 / p95: 2.399 s / 3.046 s.
+
+`qwen3:8b` was selected for complete citation correctness, 100% valid JSON,
+and lower measured latency. Gym refusal did not distinguish the models.
+
+### Consequences
+
+- Runtime `GENERATION_MODEL` is `qwen3:8b` from the environment or gitignored
+  `.env` file.
+- Runtime requires a reachable Ollama host via `OLLAMA_HOST`.
+- Generation uses the official Ollama chat API, schema-constrained JSON,
+  `temperature=0`, and `think=False`.
+- `mistral:7b` stays available for repeatable comparison runs.
+
+### Limitations
+
+This lab dataset is six questions. Thinking-on Qwen was slower and not
+selected. Answer wording is judged against gold meaning by the user; citation
+and refusal scores are automatic.
+
+Detailed measurements are recorded in
+[`llm-model-comparison.md`](llm-model-comparison.md).
