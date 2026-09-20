@@ -224,6 +224,9 @@ def test_env_example_defines_runtime_knobs() -> None:
     assert values["OLLAMA_HOST"] == "http://host.docker.internal:11434"
     assert values["GENERATION_MODEL"] == "qwen3:8b"
     assert values["GENERATION_MODEL"] in CANDIDATE_OLLAMA_MODELS
+    assert values["DATABASE_URL"] == (
+        "postgresql://USER:PASSWORD@localhost:5432/DBNAME"
+    )
 
 
 def _dotenv_values(path: Path) -> dict[str, str]:
