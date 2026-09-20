@@ -87,9 +87,11 @@ class GenerationDecision(DomainModel):
 
     @model_validator(mode="after")
     def validate_supported_citation(self) -> Self:
-        """Require a chunk ID whenever the model claims the question is supported."""
+        """Keep support flags and citations consistent."""
         if self.supported and self.cited_chunk_id is None:
             raise ValueError("supported output must cite a chunk_id")
+        if not self.supported and self.cited_chunk_id is not None:
+            raise ValueError("unsupported output must not cite a chunk_id")
         return self
 
 

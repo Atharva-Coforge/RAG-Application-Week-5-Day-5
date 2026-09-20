@@ -122,7 +122,7 @@ def test_unsupported_decision_becomes_canonical_refusal() -> None:
         GenerationDecision(
             supported=False,
             answer="Gym memberships are not mentioned, so I will guess no.",
-            cited_chunk_id=meals.chunk.chunk_id,
+            cited_chunk_id=None,
         )
     )
     service = GenerationService(generation_provider=provider)
@@ -177,6 +177,33 @@ def test_supported_decision_without_citation_fails_closed() -> None:
             supported=True,
             answer="Employees may claim up to $65 per day.",
             cited_chunk_id=None,
+        )
+
+
+def test_unsupported_decision_with_citation_fails_closed() -> None:
+    with pytest.raises(ValidationError, match="must not cite a chunk_id"):
+        GenerationDecision(
+            supported=False,
+            answer=REFUSAL_ANSWER,
+            cited_chunk_id="expense-policy:v2.0:section-1",
+        )
+
+
+def test_empty_question_fails_closed() -> None:
+    service = GenerationService(
+        generation_provider=FakeGenerationProvider(
+            GenerationDecision(
+                supported=False,
+                answer=REFUSAL_ANSWER,
+                cited_chunk_id=None,
+            )
+        )
+    )
+
+    with pytest.raises(GenerationContractError, match="question must not be empty"):
+        service.generate(
+            "   ",
+            (_result("1", "Meals", "Employees may claim up to $65 per day."),),
         )
 
 
