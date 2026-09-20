@@ -33,6 +33,7 @@ jobs:
           VECTOR_STORE: pgvector
           GENERATION_MODEL: qwen3:8b
           OLLAMA_HOST: http://127.0.0.1:11434
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
         run: uv run pytest tests/
 
       - name: Run Ruff

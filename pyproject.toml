@@ -14,19 +14,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-chroma = ["chromadb>=1.0,<2.0"]
-faiss = ["faiss-cpu>=1.12,<2.0"]
-pgvector = [
-    "pgvector>=0.4,<1.0",
-    "psycopg[binary]>=3.2,<4.0",
-]
+# Selected application stack (ADR-001, ADR-002, ADR-003).
 embeddings = [
     "huggingface-hub>=0.34,<2.0",
     "sentence-transformers>=5.1,<6.0",
 ]
+pgvector = [
+    "pgvector>=0.4,<1.0",
+    "psycopg[binary]>=3.2,<4.0",
+]
 generation = [
     "ollama>=0.5,<1.0",
 ]
+# Comparison-only store adapters.
+chroma = ["chromadb>=1.0,<2.0"]
+faiss = ["faiss-cpu>=1.12,<2.0"]
 
 [project.scripts]
 expense-rag = "expense_rag.cli:main"
