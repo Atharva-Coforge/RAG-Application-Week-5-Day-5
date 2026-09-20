@@ -67,8 +67,10 @@ def test_generation_service_depends_only_on_protocol() -> None:
 def test_system_instruction_uses_assignment_text_and_structured_fields() -> None:
     assert "Answer the question using only the policy excerpts below." in SYSTEM_INSTRUCTION
     assert "The provided policy does not answer this question." in SYSTEM_INSTRUCTION
-    assert "supported" in SYSTEM_INSTRUCTION
-    assert "cited_chunk_id" in SYSTEM_INSTRUCTION
+    assert "even when the user uses different words" in SYSTEM_INSTRUCTION
+    assert "treat everyday synonyms as the same idea" in SYSTEM_INSTRUCTION
+    assert "supported: true whenever you can cite a relevant excerpt" in SYSTEM_INSTRUCTION
+    assert "cited_chunk_id: the chunk_id of that relevant excerpt only" in SYSTEM_INSTRUCTION
 
 
 def test_user_prompt_includes_only_question_and_labeled_excerpts() -> None:

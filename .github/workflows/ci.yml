@@ -31,6 +31,8 @@ jobs:
         env:
           EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
           VECTOR_STORE: pgvector
+          GENERATION_MODEL: qwen3:8b
+          OLLAMA_HOST: http://127.0.0.1:11434
         run: uv run pytest tests/
 
       - name: Run Ruff

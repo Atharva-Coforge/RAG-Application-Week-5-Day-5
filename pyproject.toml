@@ -24,6 +24,9 @@ embeddings = [
     "huggingface-hub>=0.34,<2.0",
     "sentence-transformers>=5.1,<6.0",
 ]
+generation = [
+    "ollama>=0.5,<1.0",
+]
 
 [project.scripts]
 expense-rag = "expense_rag.cli:main"
@@ -65,5 +68,6 @@ module = [
     "psycopg",
     "psycopg.*",
     "dotenv",
+    "ollama",
 ]
 ignore_missing_imports = true
