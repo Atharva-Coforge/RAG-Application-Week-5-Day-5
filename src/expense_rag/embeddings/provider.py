@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from math import isclose, isfinite, sqrt
 
+from expense_rag.config import Settings
 from expense_rag.embeddings.base import EmbeddingProvider, EmbeddingVector
 from expense_rag.models import PolicyChunk, PolicySection
 
@@ -106,6 +107,15 @@ def validate_embedding_vector(
         )
 
     return frozen
+
+
+def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
+    """Build the configured embedding provider without exposing SDK imports."""
+    from expense_rag.embeddings.sentence_transformer import (
+        SentenceTransformerEmbeddingProvider,
+    )
+
+    return SentenceTransformerEmbeddingProvider(settings.embedding_model)
 
 
 def _validate_provider_metadata(provider: EmbeddingProvider) -> None:

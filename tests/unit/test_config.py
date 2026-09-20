@@ -174,3 +174,17 @@ def test_settings_repr_does_not_print_database_secret() -> None:
 
     assert secret not in repr(settings)
     assert secret not in str(settings)
+
+
+def test_settings_with_backend_drops_database_url_for_chroma() -> None:
+    settings = _valid_settings().with_backend(VectorBackend.CHROMA)
+
+    assert settings.vector_backend is VectorBackend.CHROMA
+    assert settings.database_url is None
+
+
+def test_settings_with_generation_model_rejects_unknown_model() -> None:
+    from expense_rag.env import UnsupportedGenerationModelError
+
+    with pytest.raises(UnsupportedGenerationModelError, match="llama3.2:3b"):
+        _valid_settings().with_generation_model("llama3.2:3b")
