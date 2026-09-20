@@ -7,9 +7,23 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from expense_rag.vector_stores.factory import SUPPORTED_VECTOR_STORES
+
 
 class MissingDatabaseUrlError(ValueError):
     """Raised when pgvector needs DATABASE_URL and none is configured."""
+
+
+class MissingEmbeddingModelError(ValueError):
+    """Raised when EMBEDDING_MODEL is missing from the environment or `.env`."""
+
+
+class MissingVectorStoreError(ValueError):
+    """Raised when VECTOR_STORE is missing from the environment or `.env`."""
+
+
+class UnsupportedVectorStoreError(ValueError):
+    """Raised when VECTOR_STORE is not one of the implemented adapters."""
 
 
 def project_root() -> Path:
@@ -29,11 +43,44 @@ def load_project_env(*, root: Path | None = None) -> Path:
 
 def get_database_url(*, root: Path | None = None) -> str:
     """Return DATABASE_URL from the process environment or project `.env`."""
+    return _required_env("DATABASE_URL", MissingDatabaseUrlError, root=root)
+
+
+def get_embedding_model(*, root: Path | None = None) -> str:
+    """Return EMBEDDING_MODEL from the process environment or project `.env`."""
+    return _required_env(
+        "EMBEDDING_MODEL",
+        MissingEmbeddingModelError,
+        root=root,
+    )
+
+
+def get_vector_store(*, root: Path | None = None) -> str:
+    """Return a supported VECTOR_STORE from the environment or project `.env`."""
+    value = _required_env(
+        "VECTOR_STORE",
+        MissingVectorStoreError,
+        root=root,
+    ).lower()
+    if value not in SUPPORTED_VECTOR_STORES:
+        supported = ", ".join(SUPPORTED_VECTOR_STORES)
+        raise UnsupportedVectorStoreError(
+            f"unsupported VECTOR_STORE {value!r}; choose one of {supported}"
+        )
+    return value
+
+
+def _required_env(
+    name: str,
+    error_type: type[ValueError],
+    *,
+    root: Path | None = None,
+) -> str:
     load_project_env(root=root)
-    value = os.environ.get("DATABASE_URL", "").strip()
+    value = os.environ.get(name, "").strip()
     if not value:
-        raise MissingDatabaseUrlError(
-            "DATABASE_URL is required for pgvector. "
-            "Copy .env.example to .env and set the real connection string."
+        raise error_type(
+            f"{name} is required. "
+            "Copy .env.example to .env and set the selected value."
         )
     return value

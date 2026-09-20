@@ -5,7 +5,7 @@ from typing import cast
 
 import pytest
 
-from expense_rag.embeddings.base import EmbeddingProvider, EmbeddingVector
+from expense_rag.embeddings.base import EmbeddingProvider
 from expense_rag.embeddings.provider import (
     EmbeddingContractError,
     embed_query,
@@ -15,49 +15,12 @@ from expense_rag.embeddings.provider import (
 )
 from expense_rag.embeddings.sentence_transformer import (
     MODEL_INPUT_FORMATS,
-    SELECTED_EMBEDDING_MODEL,
     format_document_input,
     format_query_input,
 )
+from expense_rag.env import get_embedding_model
 from expense_rag.models import PolicySection
-
-
-class FakeEmbeddingProvider:
-    """Configurable synchronous provider used to test the shared contract."""
-
-    def __init__(
-        self,
-        *,
-        document_vectors: tuple[EmbeddingVector, ...],
-        query_vector: EmbeddingVector = (1.0, 0.0),
-        model_name: str = "fake-embedding-model",
-        dimension: int = 2,
-    ) -> None:
-        self._document_vectors = document_vectors
-        self._query_vector = query_vector
-        self._model_name = model_name
-        self._dimension = dimension
-        self.document_inputs: tuple[str, ...] = ()
-        self.query_input: str | None = None
-
-    @property
-    def model_name(self) -> str:
-        return self._model_name
-
-    @property
-    def dimension(self) -> int:
-        return self._dimension
-
-    def embed_documents(
-        self,
-        texts: Sequence[str],
-    ) -> tuple[EmbeddingVector, ...]:
-        self.document_inputs = tuple(texts)
-        return self._document_vectors
-
-    def embed_query(self, text: str) -> EmbeddingVector:
-        self.query_input = text
-        return self._query_vector
+from tests.fakes import FakeEmbeddingProvider
 
 
 @pytest.fixture
@@ -239,8 +202,6 @@ def test_candidate_models_use_selected_documented_formats(
 
 
 def test_selected_embedding_model_is_a_supported_candidate() -> None:
-    assert (
-        SELECTED_EMBEDDING_MODEL
-        == "sentence-transformers/all-MiniLM-L6-v2"
-    )
-    assert SELECTED_EMBEDDING_MODEL in MODEL_INPUT_FORMATS
+    model_name = get_embedding_model()
+    assert model_name == "sentence-transformers/all-MiniLM-L6-v2"
+    assert model_name in MODEL_INPUT_FORMATS

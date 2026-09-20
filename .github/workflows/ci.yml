@@ -28,6 +28,9 @@ jobs:
         run: uv sync --locked --group dev
 
       - name: Run model tests
+        env:
+          EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+          VECTOR_STORE: pgvector
         run: uv run pytest tests/
 
       - name: Run Ruff

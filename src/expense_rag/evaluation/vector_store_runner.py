@@ -13,20 +13,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from expense_rag.embeddings.provider import embed_query, embed_sections
 from expense_rag.embeddings.sentence_transformer import (
-    SELECTED_EMBEDDING_MODEL,
     SentenceTransformerEmbeddingProvider,
 )
-from expense_rag.env import get_database_url
+from expense_rag.env import get_database_url, get_embedding_model, get_vector_store
 from expense_rag.evaluation.gold_loader import load_gold_cases
 from expense_rag.ingestion.parser import load_policy
 from expense_rag.models import GoldCase, PolicyChunk, SearchResult
 from expense_rag.retrieval.cosine import cosine_search
 from expense_rag.vector_stores.base import VectorStore
-from expense_rag.vector_stores.factory import SELECTED_VECTOR_STORE
+from expense_rag.vector_stores.factory import SUPPORTED_VECTOR_STORES
 
 DEFAULT_REPLACEMENT_ROUNDS = 20
 DEFAULT_QUERY_ROUNDS = 200
-_BACKENDS = ("chroma", "faiss", "pgvector")
 
 
 class StoreQueryResult(BaseModel):
@@ -104,7 +102,7 @@ class VectorStoreComparisonRunner:
 
     def run(self, backends: Sequence[str]) -> VectorStoreComparisonReport:
         """Run selected backends and retain their persistence artifacts."""
-        invalid = set(backends) - set(_BACKENDS)
+        invalid = set(backends) - set(SUPPORTED_VECTOR_STORES)
         if invalid:
             raise ValueError(f"unsupported vector backends: {sorted(invalid)}")
         if not backends:
@@ -114,9 +112,8 @@ class VectorStoreComparisonRunner:
         cases = load_gold_cases(
             self._project_root / "data" / "gold" / "gold-data.md"
         )
-        provider = SentenceTransformerEmbeddingProvider(
-            SELECTED_EMBEDDING_MODEL
-        )
+        embedding_model = get_embedding_model()
+        provider = SentenceTransformerEmbeddingProvider(embedding_model)
         chunks = embed_sections(sections, provider)
         query_embeddings = tuple(
             embed_query(case.question, provider) for case in cases
@@ -132,7 +129,7 @@ class VectorStoreComparisonRunner:
             for backend in backends
         )
         return VectorStoreComparisonReport(
-            embedding_model=SELECTED_EMBEDDING_MODEL,
+            embedding_model=embedding_model,
             dimension=provider.dimension,
             replacement_rounds=self._replacement_rounds,
             query_rounds=self._query_rounds,
@@ -142,7 +139,7 @@ class VectorStoreComparisonRunner:
                 "device": "CPU",
             },
             results=results,
-            selected_backend=SELECTED_VECTOR_STORE,
+            selected_backend=get_vector_store(),
             selection_status="Selected by user",
         )
 
@@ -338,7 +335,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
     parser.add_argument(
         "--backends",
-        default=",".join(_BACKENDS),
+        default=",".join(SUPPORTED_VECTOR_STORES),
         help="Comma-separated subset of chroma, faiss, pgvector.",
     )
     parser.add_argument(

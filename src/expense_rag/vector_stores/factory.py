@@ -4,7 +4,6 @@ from typing import Protocol
 
 from expense_rag.vector_stores.base import VectorStore
 
-SELECTED_VECTOR_STORE = "pgvector"
 SUPPORTED_VECTOR_STORES = ("chroma", "faiss", "pgvector")
 
 

@@ -71,7 +71,8 @@ margin, query p95, and memory—produced:
 3. `intfloat/e5-small-v2`
 
 Based on this evidence, the user selected
-`sentence-transformers/all-MiniLM-L6-v2`.
+`sentence-transformers/all-MiniLM-L6-v2`. Runtime code reads that name from
+`EMBEDDING_MODEL`.
 
 Raw results are generated locally at
 `data/artifacts/evaluation/embedding-comparison.json`.

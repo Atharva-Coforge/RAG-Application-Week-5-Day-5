@@ -1,15 +1,21 @@
-"""Tests for exact cosine distance and reference retrieval."""
+"""Tests for exact cosine distance and retrieval service."""
 
 from math import sqrt
+from typing import get_type_hints
 
 import pytest
 
+from expense_rag.embeddings.base import EmbeddingProvider
+from expense_rag.embeddings.provider import EmbeddingContractError
 from expense_rag.models import PolicyChunk
 from expense_rag.retrieval.cosine import (
     CosineSearchError,
     cosine_distance,
     cosine_search,
 )
+from expense_rag.retrieval.service import RetrievalService
+from expense_rag.vector_stores.base import VectorStore
+from tests.fakes import FakeEmbeddingProvider, InMemoryVectorStore
 
 
 def test_cosine_distance_known_values() -> None:
@@ -84,6 +90,56 @@ def test_cosine_search_rejects_empty_or_duplicate_chunks() -> None:
     duplicate = _chunk("1", (1.0, 0.0))
     with pytest.raises(CosineSearchError, match="unique chunk IDs"):
         cosine_search((1.0, 0.0), (duplicate, duplicate))
+
+
+def test_retrieval_service_depends_only_on_protocols() -> None:
+    hints = get_type_hints(RetrievalService.__init__)
+
+    assert hints["embedding_provider"] is EmbeddingProvider
+    assert hints["vector_store"] is VectorStore
+
+
+def test_retrieve_returns_at_most_three_ascending_results() -> None:
+    store = InMemoryVectorStore(collection_name="expense-policy", dimension=2)
+    store.replace_all(
+        (
+            _chunk("4", (0.0, -1.0)),
+            _chunk("2", (0.0, 1.0)),
+            _chunk("3", (-1.0, 0.0)),
+            _chunk("1", (1.0, 0.0)),
+        )
+    )
+    provider = FakeEmbeddingProvider(
+        document_vectors=(),
+        query_vector=(1.0, 0.0),
+        dimension=2,
+    )
+    service = RetrievalService(embedding_provider=provider, vector_store=store)
+
+    results = service.retrieve("How much can I spend on meals?")
+
+    assert provider.query_input == "How much can I spend on meals?"
+    assert len(results) <= 3
+    assert [result.chunk.section for result in results] == ["1", "2", "4"]
+    assert [result.distance for result in results] == sorted(
+        result.distance for result in results
+    )
+
+
+def test_retrieve_rejects_empty_question() -> None:
+    service = RetrievalService(
+        embedding_provider=FakeEmbeddingProvider(
+            document_vectors=(),
+            dimension=2,
+        ),
+        vector_store=InMemoryVectorStore(
+            collection_name="expense-policy",
+            dimension=2,
+        ),
+    )
+
+    with pytest.raises(EmbeddingContractError, match="question must not be empty"):
+        service.retrieve("   ")
 
 
 def _chunk(

@@ -24,9 +24,9 @@ from expense_rag.embeddings.provider import (
 )
 from expense_rag.embeddings.sentence_transformer import (
     MODEL_INPUT_FORMATS,
-    SELECTED_EMBEDDING_MODEL,
     SentenceTransformerEmbeddingProvider,
 )
+from expense_rag.env import get_embedding_model
 from expense_rag.evaluation.gold_loader import load_gold_cases
 from expense_rag.evaluation.metrics import (
     RetrievalQualityMetrics,
@@ -244,7 +244,7 @@ def run_comparison(
             for result in sorted(results, key=_accuracy_first_key, reverse=True)
         ),
         results=tuple(results),
-        selected_model=SELECTED_EMBEDDING_MODEL,
+        selected_model=get_embedding_model(),
         selection_status="Selected by user",
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -37,8 +37,6 @@ MODEL_INPUT_FORMATS: dict[str, ModelInputFormat] = {
     ),
 }
 
-SELECTED_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-
 
 def format_document_input(model_name: str, text: str) -> str:
     """Apply the candidate model's documented passage formatting."""
