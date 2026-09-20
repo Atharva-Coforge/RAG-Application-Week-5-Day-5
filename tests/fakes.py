@@ -7,7 +7,14 @@ from types import TracebackType
 from typing import Self
 
 from expense_rag.embeddings.base import EmbeddingVector
-from expense_rag.models import PolicyChunk, SearchResult
+from expense_rag.env import project_root
+from expense_rag.evaluation.gold_loader import load_gold_cases
+from expense_rag.models import (
+    REFUSAL_ANSWER,
+    GenerationDecision,
+    PolicyChunk,
+    SearchResult,
+)
 from expense_rag.retrieval.cosine import cosine_search
 from expense_rag.vector_stores.base import (
     VectorStoreClosedError,
@@ -129,3 +136,96 @@ class InMemoryVectorStore:
     def _ensure_open(self) -> None:
         if self._closed:
             raise VectorStoreClosedError("vector store is closed")
+
+
+class MappedQueryEmbeddingProvider(FakeEmbeddingProvider):
+    """Return a different query vector for each gold question."""
+
+    def __init__(
+        self,
+        *,
+        document_vectors: tuple[EmbeddingVector, ...],
+        query_vectors_by_question: dict[str, EmbeddingVector],
+        model_name: str = "fake-embedding-model",
+        dimension: int = 2,
+    ) -> None:
+        super().__init__(
+            document_vectors=document_vectors,
+            query_vector=document_vectors[0],
+            model_name=model_name,
+            dimension=dimension,
+        )
+        self._query_vectors_by_question = query_vectors_by_question
+
+    def embed_query(self, text: str) -> EmbeddingVector:
+        self.query_input = text
+        return self._query_vectors_by_question[text]
+
+
+class MappedGenerationProvider:
+    """Return a structured decision based on the prompted question."""
+
+    def __init__(self, decisions: dict[str, GenerationDecision]) -> None:
+        self._decisions = decisions
+        self.call_count = 0
+
+    def generate(
+        self,
+        *,
+        system_instruction: str,
+        user_prompt: str,
+        response_schema: dict[str, object],
+    ) -> GenerationDecision:
+        del system_instruction, response_schema
+        self.call_count += 1
+        question = user_prompt.split("Question:\n", 1)[1].split("\n\n", 1)[0].strip()
+        return self._decisions[question]
+
+
+def basis_vectors(count: int) -> tuple[EmbeddingVector, ...]:
+    """Return ``count`` orthogonal unit vectors."""
+    return tuple(
+        tuple(1.0 if index == axis else 0.0 for index in range(count))
+        for axis in range(count)
+    )
+
+
+def gold_aware_embedding_provider() -> MappedQueryEmbeddingProvider:
+    """Map each gold question to the vector of its expected section."""
+    cases = load_gold_cases(project_root() / "data" / "gold" / "gold-data.md")
+    vectors = basis_vectors(len(cases))
+    query_vectors = {
+        case.question: (
+            vectors[int(case.expected_section) - 1]
+            if case.expected_section is not None
+            else vectors[0]
+        )
+        for case in cases
+    }
+    return MappedQueryEmbeddingProvider(
+        document_vectors=vectors,
+        query_vectors_by_question=query_vectors,
+        dimension=len(cases),
+    )
+
+
+def gold_aware_generation_provider() -> MappedGenerationProvider:
+    """Cite the expected section, or refuse the unsupported gym question."""
+    cases = load_gold_cases(project_root() / "data" / "gold" / "gold-data.md")
+    decisions = {
+        case.question: (
+            GenerationDecision(
+                supported=True,
+                answer=case.required_answer,
+                cited_chunk_id=f"expense-policy:v2.0:section-{case.expected_section}",
+            )
+            if case.supported
+            else GenerationDecision(
+                supported=False,
+                answer=REFUSAL_ANSWER,
+                cited_chunk_id=None,
+            )
+        )
+        for case in cases
+    }
+    return MappedGenerationProvider(decisions)

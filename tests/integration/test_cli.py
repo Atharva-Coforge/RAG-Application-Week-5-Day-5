@@ -10,61 +10,28 @@ import pytest
 
 from expense_rag.cli import main
 from expense_rag.config import VectorBackend
-from expense_rag.env import MissingDatabaseUrlError
+from expense_rag.env import MissingDatabaseUrlError, project_root
 from expense_rag.generation.base import GenerationProvider
 from expense_rag.ingestion.parser import EXPECTED_SECTION_COUNT
-from expense_rag.models import GenerationDecision
-from expense_rag.vector_stores.factory import SUPPORTED_VECTOR_STORES
-from tests.fakes import FakeEmbeddingProvider, InMemoryVectorStore
-
-
-class FakeGenerationProvider:
-    """Return one structured decision for every CLI generation call."""
-
-    def __init__(self, result: GenerationDecision) -> None:
-        self._result = result
-        self.call_count = 0
-
-    def generate(
-        self,
-        *,
-        system_instruction: str,
-        user_prompt: str,
-        response_schema: dict[str, object],
-    ) -> GenerationDecision:
-        del system_instruction, user_prompt, response_schema
-        self.call_count += 1
-        return self._result
-
-
-def _basis_vectors(count: int) -> tuple[tuple[float, ...], ...]:
-    return tuple(
-        tuple(1.0 if index == axis else 0.0 for index in range(count))
-        for axis in range(count)
-    )
+from tests.fakes import (
+    InMemoryVectorStore,
+    MappedGenerationProvider,
+    gold_aware_embedding_provider,
+    gold_aware_generation_provider,
+)
 
 
 @pytest.fixture
 def fake_runtime(
     monkeypatch: pytest.MonkeyPatch,
-) -> tuple[InMemoryVectorStore, FakeGenerationProvider]:
+) -> tuple[InMemoryVectorStore, MappedGenerationProvider]:
     store = InMemoryVectorStore(
         collection_name="expense-policy",
         dimension=EXPECTED_SECTION_COUNT,
     )
     store.close = lambda: None  # type: ignore[method-assign]
-    embedder = FakeEmbeddingProvider(
-        document_vectors=_basis_vectors(EXPECTED_SECTION_COUNT),
-        query_vector=_basis_vectors(EXPECTED_SECTION_COUNT)[0],
-        dimension=EXPECTED_SECTION_COUNT,
-    )
-    generator = FakeGenerationProvider(
-        GenerationDecision(
-            supported=True,
-            answer="Employees may claim up to $65 per day for meals.",
-            cited_chunk_id="expense-policy:v2.0:section-1",
-        )
-    )
+    embedder = gold_aware_embedding_provider()
+    generator = gold_aware_generation_provider()
     captured: dict[str, object] = {}
 
     def build_store(settings: object) -> InMemoryVectorStore:
@@ -98,7 +65,7 @@ def test_cli_imports_factories_not_provider_sdks() -> None:
 
 
 def test_ingest_prints_six_chunk_summary(
-    fake_runtime: tuple[InMemoryVectorStore, FakeGenerationProvider],
+    fake_runtime: tuple[InMemoryVectorStore, MappedGenerationProvider],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     store, _ = fake_runtime
@@ -115,7 +82,7 @@ def test_ingest_prints_six_chunk_summary(
 
 
 def test_ingest_missing_policy_returns_nonzero(
-    fake_runtime: tuple[InMemoryVectorStore, FakeGenerationProvider],
+    fake_runtime: tuple[InMemoryVectorStore, MappedGenerationProvider],
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -128,7 +95,7 @@ def test_ingest_missing_policy_returns_nonzero(
 
 
 def test_ask_prints_assignment_response_shape(
-    fake_runtime: tuple[InMemoryVectorStore, FakeGenerationProvider],
+    fake_runtime: tuple[InMemoryVectorStore, MappedGenerationProvider],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     assert main(["ingest"]) == 0
@@ -137,7 +104,7 @@ def test_ask_prints_assignment_response_shape(
     assert main(["ask", "How much can I spend on food each day?"]) == 0
     payload = json.loads(capsys.readouterr().out)
 
-    assert payload["answer"] == "Employees may claim up to $65 per day for meals."
+    assert "$65" in payload["answer"]
     assert payload["citation"] == {
         "document": "Employee Expense Policy",
         "version": "2.0",
@@ -151,7 +118,7 @@ def test_ask_prints_assignment_response_shape(
 
 
 def test_ask_without_ingestion_returns_nonzero(
-    fake_runtime: tuple[InMemoryVectorStore, FakeGenerationProvider],
+    fake_runtime: tuple[InMemoryVectorStore, MappedGenerationProvider],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     del fake_runtime
@@ -162,32 +129,37 @@ def test_ask_without_ingestion_returns_nonzero(
     assert "not been ingested" in captured.err
 
 
-def test_evaluate_prints_six_case_artifact(
-    fake_runtime: tuple[InMemoryVectorStore, FakeGenerationProvider],
+def test_evaluate_prints_acceptance_report(
+    fake_runtime: tuple[InMemoryVectorStore, MappedGenerationProvider],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     _, generator = fake_runtime
+    evaluation_dir = project_root() / "data" / "artifacts" / "evaluation"
+    before = set(evaluation_dir.glob("acceptance-*.json")) if evaluation_dir.exists() else set()
     assert main(["ingest"]) == 0
     capsys.readouterr()
 
     assert main(["evaluate"]) == 0
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
+    created = set(evaluation_dir.glob("acceptance-*.json")) - before
+    for path in created:
+        path.unlink()
 
-    assert payload["case_count"] == 6
-    assert len(payload["results"]) == 6
+    assert payload["accepted"] is True
+    assert payload["stored_chunk_count"] == EXPECTED_SECTION_COUNT
+    assert payload["supported_hit_at_3_count"] == 5
+    assert payload["gym_refusal_correct"] is True
+    assert len(payload["case_results"]) == 6
     assert generator.call_count == 6
-    assert payload["backend"] in SUPPORTED_VECTOR_STORES
-    assert payload["generation_model"]
-    first = payload["results"][0]
-    assert "question" in first
-    assert "response" in first
+    first = payload["case_results"][0]
     assert {"answer", "citation", "retrieved_chunks"} <= set(first["response"])
-    assert "evaluated 6 cases" in captured.err
+    assert "acceptance passed" in captured.err
+    assert "wrote " in captured.err
 
 
 def test_backend_override_reaches_the_store_factory(
-    fake_runtime: tuple[InMemoryVectorStore, FakeGenerationProvider],
+    fake_runtime: tuple[InMemoryVectorStore, MappedGenerationProvider],
 ) -> None:
     store, _ = fake_runtime
 
@@ -220,11 +192,5 @@ def test_missing_credentials_return_nonzero(
 
 
 def test_cli_generation_provider_is_protocol_compatible() -> None:
-    provider = FakeGenerationProvider(
-        GenerationDecision(
-            supported=True,
-            answer="Employees may claim up to $65 per day for meals.",
-            cited_chunk_id="expense-policy:v2.0:section-1",
-        )
-    )
+    provider = gold_aware_generation_provider()
     assert isinstance(provider, GenerationProvider)
