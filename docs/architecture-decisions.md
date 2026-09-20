@@ -1,5 +1,24 @@
 # Architecture Decisions
 
+## Final architecture
+
+The application is a UV-managed CLI. Configuration is a single `Settings`
+object loaded from the gitignored `.env` file after the three comparison
+gates closed.
+
+| Layer | Selected value | Why it won |
+| --- | --- | --- |
+| Embeddings | `sentence-transformers/all-MiniLM-L6-v2` | Perfect gold retrieval, largest distance margin, lowest query p95 and model size ([ADR-001](#adr-001-use-all-minilm-l6-v2-for-embeddings)) |
+| Vector store | PostgreSQL + pgvector | Running database, transactional replace, and the SQL migration belong to this backend ([ADR-002](#adr-002-use-postgresql-with-pgvector-as-the-default-store)) |
+| Generation | local Ollama `qwen3:8b` | 100% citations, 100% valid JSON, slightly lower latency; gym refusal was a tie ([ADR-003](#adr-003-use-local-ollama-qwen38b-for-generation)) |
+
+Runtime knobs: `EMBEDDING_MODEL`, `VECTOR_STORE`, `DATABASE_URL`,
+`OLLAMA_HOST`, `GENERATION_MODEL`. Retrieval `top_k` is fixed at 3.
+Chroma, FAISS, and `mistral:7b` stay installed as comparison extras.
+
+Commands: `uv run expense-rag ingest|ask|evaluate`. Acceptance evidence is
+written to `data/artifacts/evaluation/acceptance-<UTC>.json`.
+
 ## ADR-001: Use all-MiniLM-L6-v2 for embeddings
 
 - **Status:** Accepted

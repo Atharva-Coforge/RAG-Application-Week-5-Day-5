@@ -27,14 +27,14 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked --group dev
 
-      - name: Run model tests
+      - name: Run the non-secret test suite
         env:
           EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
           VECTOR_STORE: pgvector
           GENERATION_MODEL: qwen3:8b
           OLLAMA_HOST: http://127.0.0.1:11434
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
-        run: uv run pytest tests/
+        run: uv run pytest tests/unit tests/contract tests/integration
 
       - name: Run Ruff
         run: uv run ruff check .

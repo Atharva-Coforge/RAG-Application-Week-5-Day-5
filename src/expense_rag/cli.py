@@ -24,6 +24,8 @@ from expense_rag.env import (
     UnsupportedVectorStoreError,
 )
 from expense_rag.evaluation.gold_loader import GoldDataParseError, load_gold_cases
+from expense_rag.evaluation.report import write_evaluation_report
+from expense_rag.evaluation.runner import EvaluationRunner
 from expense_rag.generation.base import GenerationProvider
 from expense_rag.generation.providers import build_generation_provider
 from expense_rag.generation.service import GenerationContractError, GenerationService
@@ -158,38 +160,29 @@ def _evaluate_command(args: argparse.Namespace, settings: Settings) -> int:
     cases = load_gold_cases(gold_path)
     embedding_provider = build_embedding_provider(settings)
     generation_provider = build_generation_provider(settings)
-    results: list[dict[str, object]] = []
     with build_vector_store(settings) as store:
-        for case in cases:
-            response = _answer_question(
-                settings,
-                case.question,
-                embedding_provider=embedding_provider,
-                generation_provider=generation_provider,
-                vector_store=store,
-            )
-            results.append(
-                {
-                    "question": case.question,
-                    "supported": case.supported,
-                    "response": response.model_dump(mode="json"),
-                }
-            )
+        report = EvaluationRunner(
+            settings=settings,
+            embedding_provider=embedding_provider,
+            vector_store=store,
+            generation_provider=generation_provider,
+        ).run(cases)
 
-    _print_json(
-        {
-            "backend": settings.vector_backend.value,
-            "generation_model": settings.generation_model,
-            "case_count": len(results),
-            "results": results,
-        }
+    artifact_path = write_evaluation_report(
+        report,
+        directory=settings.artifacts_dir / "evaluation",
     )
+    _print_json(report.model_dump(mode="json"))
+    print(f"wrote {artifact_path}", file=sys.stderr)
+    status = "passed" if report.accepted else "failed"
     print(
-        f"evaluated {len(results)} cases using "
-        f"{settings.vector_backend.value} and {settings.generation_model}",
+        f"acceptance {status}: "
+        f"{report.supported_hit_at_3_count}/"
+        f"{report.supported_hit_at_3_required} supported sections retrieved; "
+        f"gym refusal {'ok' if report.gym_refusal_correct else 'failed'}",
         file=sys.stderr,
     )
-    return 0
+    return 0 if report.accepted else 1
 
 
 def _answer_question(
