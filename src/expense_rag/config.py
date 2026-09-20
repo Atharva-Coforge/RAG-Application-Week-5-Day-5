@@ -86,6 +86,35 @@ class Settings(BaseModel):
             top_k=MAX_RETRIEVAL_RESULTS,
         )
 
+    def with_backend(self, backend: VectorBackend) -> Self:
+        """Return settings for a CLI backend override."""
+        database_url = self.database_url
+        if backend is VectorBackend.PGVECTOR:
+            if database_url is None:
+                from expense_rag.env import get_database_url
+
+                database_url = SecretStr(get_database_url(root=self.project_root))
+        else:
+            database_url = None
+        return self.model_copy(
+            update={"vector_backend": backend, "database_url": database_url}
+        )
+
+    def with_generation_model(self, model_name: str) -> Self:
+        """Return settings for a CLI generation-model override."""
+        from expense_rag.env import UnsupportedGenerationModelError
+        from expense_rag.generation.providers.ollama_provider import (
+            CANDIDATE_OLLAMA_MODELS,
+        )
+
+        if model_name not in CANDIDATE_OLLAMA_MODELS:
+            supported = ", ".join(CANDIDATE_OLLAMA_MODELS)
+            raise UnsupportedGenerationModelError(
+                f"unsupported GENERATION_MODEL {model_name!r}; "
+                f"choose one of {supported}"
+            )
+        return self.model_copy(update={"generation_model": model_name})
+
     @model_validator(mode="after")
     def validate_runtime_contract(self) -> Self:
         """Reject incomplete, placeholder, or out-of-root configuration."""
