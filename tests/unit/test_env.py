@@ -9,10 +9,12 @@ import pytest
 from expense_rag.env import (
     MissingDatabaseUrlError,
     MissingEmbeddingModelError,
+    MissingOllamaHostError,
     MissingVectorStoreError,
     UnsupportedVectorStoreError,
     get_database_url,
     get_embedding_model,
+    get_ollama_host,
     get_vector_store,
     load_project_env,
     project_root,
@@ -151,6 +153,30 @@ def test_unsupported_vector_store_raises(
         get_vector_store(root=tmp_path)
 
 
+def test_load_project_env_reads_ollama_host(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+    (tmp_path / ".env").write_text(
+        "OLLAMA_HOST=http://host.docker.internal:11434\n",
+        encoding="utf-8",
+    )
+
+    assert get_ollama_host(root=tmp_path) == "http://host.docker.internal:11434"
+
+
+def test_missing_ollama_host_raises(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+    (tmp_path / ".env").write_text("VECTOR_STORE=pgvector\n", encoding="utf-8")
+
+    with pytest.raises(MissingOllamaHostError, match="OLLAMA_HOST"):
+        get_ollama_host(root=tmp_path)
+
+
 def test_env_example_defines_runtime_knobs() -> None:
     values = _dotenv_values(project_root() / ".env.example")
 
@@ -159,6 +185,7 @@ def test_env_example_defines_runtime_knobs() -> None:
     )
     assert values["VECTOR_STORE"] == "pgvector"
     assert values["VECTOR_STORE"] in SUPPORTED_VECTOR_STORES
+    assert values["OLLAMA_HOST"] == "http://host.docker.internal:11434"
 
 
 def _dotenv_values(path: Path) -> dict[str, str]:

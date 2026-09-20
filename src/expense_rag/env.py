@@ -22,6 +22,10 @@ class MissingVectorStoreError(ValueError):
     """Raised when VECTOR_STORE is missing from the environment or `.env`."""
 
 
+class MissingOllamaHostError(ValueError):
+    """Raised when Ollama generation needs OLLAMA_HOST and none is configured."""
+
+
 class UnsupportedVectorStoreError(ValueError):
     """Raised when VECTOR_STORE is not one of the implemented adapters."""
 
@@ -68,6 +72,11 @@ def get_vector_store(*, root: Path | None = None) -> str:
             f"unsupported VECTOR_STORE {value!r}; choose one of {supported}"
         )
     return value
+
+
+def get_ollama_host(*, root: Path | None = None) -> str:
+    """Return OLLAMA_HOST from the process environment or project `.env`."""
+    return _required_env("OLLAMA_HOST", MissingOllamaHostError, root=root)
 
 
 def _required_env(
