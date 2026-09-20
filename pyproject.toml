@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.11,<3.0",
+    "python-dotenv>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]
@@ -54,5 +55,15 @@ module = [
     "sentence_transformers.*",
     "huggingface_hub",
     "huggingface_hub.*",
+    "chromadb",
+    "chromadb.*",
+    "faiss",
+    "numpy",
+    "numpy.*",
+    "pgvector",
+    "pgvector.*",
+    "psycopg",
+    "psycopg.*",
+    "dotenv",
 ]
 ignore_missing_imports = true

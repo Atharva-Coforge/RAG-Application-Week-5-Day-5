@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from pathlib import Path
 from types import TracebackType
 from typing import Self
 
 import pytest
 
 from expense_rag.embeddings.base import EmbeddingVector
+from expense_rag.env import get_database_url
 from expense_rag.models import PolicyChunk, SearchResult
 from expense_rag.retrieval.cosine import cosine_search
 from expense_rag.vector_stores.base import (
@@ -100,13 +102,66 @@ class InMemoryContractStore:
 
 
 @pytest.fixture
-def store_factory() -> VectorStoreFactory:
-    return InMemoryContractStore
+def store_factory(
+    backend_name: str,
+    tmp_path: Path,
+) -> Iterator[VectorStoreFactory]:
+    created_pgvector = False
+
+    def create_store(
+        *,
+        collection_name: str,
+        dimension: int,
+    ) -> VectorStore:
+        nonlocal created_pgvector
+        if backend_name == "memory":
+            return InMemoryContractStore(
+                collection_name=collection_name,
+                dimension=dimension,
+            )
+        if backend_name == "chroma":
+            from expense_rag.vector_stores.chroma_store import ChromaVectorStore
+
+            return ChromaVectorStore(
+                directory=tmp_path / "chroma",
+                collection_name=collection_name,
+                dimension=dimension,
+            )
+        if backend_name == "faiss":
+            from expense_rag.vector_stores.faiss_store import FaissVectorStore
+
+            return FaissVectorStore(
+                directory=tmp_path / "faiss",
+                collection_name=collection_name,
+                dimension=dimension,
+            )
+        if backend_name == "pgvector":
+            from expense_rag.vector_stores.pgvector_store import PgVectorStore
+
+            store = PgVectorStore(
+                database_url=get_database_url(),
+                collection_name=collection_name,
+                dimension=dimension,
+            )
+            if not created_pgvector:
+                store.replace_all(())
+                created_pgvector = True
+            return store
+        raise AssertionError(f"unhandled backend {backend_name!r}")
+
+    yield create_store
+
+    if backend_name == "pgvector" and created_pgvector:
+        cleanup = create_store(collection_name="expense-policy", dimension=3)
+        cleanup.replace_all(())
+        cleanup.close()
 
 
 @pytest.fixture
-def store(store_factory: VectorStoreFactory) -> VectorStore:
-    return store_factory(collection_name="expense-policy", dimension=3)
+def store(store_factory: VectorStoreFactory) -> Iterator[VectorStore]:
+    instance = store_factory(collection_name="expense-policy", dimension=3)
+    yield instance
+    instance.close()
 
 
 def test_store_implements_runtime_protocol(store: VectorStore) -> None:
@@ -161,7 +216,28 @@ def test_empty_replacement_clears_store_and_empty_search_returns_nothing(
     assert store.search((1.0, 0.0, 0.0)) == ()
 
 
-def test_invalid_replacement_is_atomic(store: VectorStore) -> None:
+def test_persistent_backends_reopen_existing_records(
+    backend_name: str,
+    store_factory: VectorStoreFactory,
+) -> None:
+    if backend_name == "memory":
+        pytest.skip("the test-only memory store is intentionally non-persistent")
+
+    original = store_factory(collection_name="expense-policy", dimension=3)
+    original.replace_all((_chunk("1", (1.0, 0.0, 0.0)),))
+    original.close()
+
+    reopened = store_factory(collection_name="expense-policy", dimension=3)
+    try:
+        assert reopened.count() == 1
+        assert reopened.search((1.0, 0.0, 0.0))[0].chunk.section == "1"
+    finally:
+        reopened.close()
+
+
+def test_validation_failure_does_not_mutate_existing_records(
+    store: VectorStore,
+) -> None:
     original = _chunk("1", (1.0, 0.0, 0.0))
     store.replace_all((original,))
 

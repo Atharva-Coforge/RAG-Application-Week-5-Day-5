@@ -42,7 +42,7 @@ class VectorStore(Protocol):
         ...
 
     def replace_all(self, chunks: Sequence[PolicyChunk]) -> None:
-        """Atomically replace all records; an empty input clears the store."""
+        """Validate first, then replace all records; empty input clears."""
         ...
 
     def search(

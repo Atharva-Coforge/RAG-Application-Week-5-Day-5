@@ -68,3 +68,55 @@ observation rather than a selection metric.
 
 Detailed measurements are recorded in
 [`embedding-model-comparison.md`](embedding-model-comparison.md).
+
+## ADR-002: Use PostgreSQL with pgvector as the default store
+
+- **Status:** Accepted
+- **Date:** 2026-09-19
+
+### Context
+
+The application needs one default vector store for policy chunks. We compared
+Chroma, FAISS, and PostgreSQL with pgvector using frozen MiniLM embeddings,
+exact cosine ranking, the same six gold questions, persistence reopen checks,
+and the shared VectorStore contract.
+
+The assignment also asks for a database migration or schema definition. FAISS
+and Chroma persist files, not SQL tables. pgvector is the backend that owns
+[`../migrations/001_create_policy_chunks.sql`](../migrations/001_create_policy_chunks.sql).
+
+### Decision
+
+Use PostgreSQL with pgvector as the default application vector store. Keep
+Chroma and FAISS as implemented comparison adapters.
+
+### Evidence
+
+All three backends retrieved the expected section first for every supported
+question and matched the exact cosine reference:
+
+- FAISS query p95: 0.035 ms; replace p95: 0.538 ms.
+- pgvector query p95: 0.639 ms; replace p95: 1.636 ms.
+- Chroma query p95: 0.888 ms; replace p95: 22.228 ms.
+
+pgvector was not the fastest store. It was selected because it is a running
+database the application can query, it provides transactional replacement,
+and the submitted schema belongs to that backend.
+
+### Consequences
+
+- Default `VECTOR_STORE` is `pgvector`.
+- Runtime requires a reachable PostgreSQL instance and `DATABASE_URL` from
+  the process environment or the gitignored `.env` file.
+- Stored embeddings remain 384-dimensional unit-normalized vectors.
+- Search uses `ORDER BY embedding <=> query_vector ASC LIMIT 3`.
+- Chroma and FAISS stay available for repeatable comparison runs.
+
+### Limitations
+
+This lab dataset is six chunks. Approximate indexes and large-corpus behavior
+were not part of the selection. Connection details are environment-specific
+and must not be committed.
+
+Detailed measurements are recorded in
+[`vector-store-comparison.md`](vector-store-comparison.md).
