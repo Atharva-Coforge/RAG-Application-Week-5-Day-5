@@ -58,6 +58,8 @@ mean distance margin at 0.0399, and had a query p95 of 39.70 ms.
   database is the only changing variable.
 - The application requires the optional local embedding dependencies and must
   download the MiniLM model before its first use.
+- Runtime code reads the selected model name from `EMBEDDING_MODEL` in the
+  environment or gitignored `.env` file.
 
 ### Limitations
 
@@ -105,7 +107,9 @@ and the submitted schema belongs to that backend.
 
 ### Consequences
 
-- Default `VECTOR_STORE` is `pgvector`.
+- Runtime `VECTOR_STORE` is read from the environment or gitignored `.env`
+  file and must be one of `chroma`, `faiss`, or `pgvector`.
+- The accepted application value is `pgvector`.
 - Runtime requires a reachable PostgreSQL instance and `DATABASE_URL` from
   the process environment or the gitignored `.env` file.
 - Stored embeddings remain 384-dimensional unit-normalized vectors.

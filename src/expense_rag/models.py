@@ -46,6 +46,22 @@ class PolicyChunk(PolicySection):
     embedding: tuple[EmbeddingValue, ...] = Field(min_length=1)
 
 
+class IngestionSummary(DomainModel):
+    """Minimal record of one successful policy ingestion."""
+
+    chunk_count: int = Field(ge=6, le=6)
+    chunk_ids: tuple[str, ...] = Field(min_length=6, max_length=6)
+
+    @model_validator(mode="after")
+    def validate_unique_ids(self) -> Self:
+        """Keep the reported count aligned with unique persisted IDs."""
+        if self.chunk_count != len(self.chunk_ids):
+            raise ValueError("chunk_count must match the number of chunk_ids")
+        if len(set(self.chunk_ids)) != len(self.chunk_ids):
+            raise ValueError("chunk_ids must be unique")
+        return self
+
+
 class SearchResult(DomainModel):
     """A retrieved chunk and its canonical cosine distance."""
 
@@ -57,6 +73,24 @@ class SearchResult(DomainModel):
     def section(self) -> str:
         """Return the public section label required by the response contract."""
         return f"{self.chunk.section}. {self.chunk.section_title}"
+
+
+class GenerationDecision(DomainModel):
+    """Private structured model output before the public response is built."""
+
+    supported: bool
+    answer: str = Field(min_length=1)
+    cited_chunk_id: str | None = Field(
+        default=None,
+        pattern=r"^[a-z0-9][a-z0-9._:-]*$",
+    )
+
+    @model_validator(mode="after")
+    def validate_supported_citation(self) -> Self:
+        """Require a chunk ID whenever the model claims the question is supported."""
+        if self.supported and self.cited_chunk_id is None:
+            raise ValueError("supported output must cite a chunk_id")
+        return self
 
 
 class Citation(DomainModel):

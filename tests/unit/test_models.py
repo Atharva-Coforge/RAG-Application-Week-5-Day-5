@@ -9,6 +9,7 @@ from expense_rag.models import (
     REFUSAL_ANSWER,
     Citation,
     GoldCase,
+    IngestionSummary,
     PolicyChunk,
     PolicySection,
     RagResponse,
@@ -234,6 +235,24 @@ def test_non_refusal_requires_citation(meals_chunk: PolicyChunk) -> None:
             answer="Meals are reimbursable.",
             citation=None,
             retrieved_chunks=(SearchResult(chunk=meals_chunk, distance=0.1),),
+        )
+
+
+def test_ingestion_summary_requires_six_unique_ids() -> None:
+    chunk_ids = tuple(f"expense-policy:v2.0:section-{index}" for index in range(1, 7))
+
+    summary = IngestionSummary(chunk_count=6, chunk_ids=chunk_ids)
+
+    assert summary.chunk_count == 6
+    assert summary.chunk_ids == chunk_ids
+
+    with pytest.raises(ValidationError):
+        IngestionSummary(chunk_count=5, chunk_ids=chunk_ids[:5])
+
+    with pytest.raises(ValidationError, match="unique"):
+        IngestionSummary(
+            chunk_count=6,
+            chunk_ids=(*chunk_ids[:5], chunk_ids[0]),
         )
 
 
